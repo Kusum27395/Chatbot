@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/contexts/auth-context"
-import { Loader2 } from "lucide-react"
+import { Loader2, Bot } from "lucide-react"
 
 interface LoginFormProps {
   onToggleMode: () => void
@@ -36,15 +36,26 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-        <CardDescription>Sign in to your account to continue chatting</CardDescription>
+    <Card className="w-full max-w-md shadow-lg">
+      <CardHeader className="space-y-4 text-center">
+        <div className="flex justify-center">
+          <div className="p-3 bg-primary rounded-full">
+            <Bot className="h-8 w-8 text-primary-foreground" />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <CardTitle className="text-2xl font-serif font-bold text-foreground">AI Assistant Pro</CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Sign in to access your professional AI assistant
+          </CardDescription>
+        </div>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-sm font-medium">
+              Email Address
+            </Label>
             <Input
               id="email"
               type="email"
@@ -52,10 +63,13 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isLoading}
+              className="h-11"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password" className="text-sm font-medium">
+              Password
+            </Label>
             <Input
               id="password"
               type="password"
@@ -63,24 +77,29 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading}
+              className="h-11"
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          {error && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</p>}
+          <Button type="submit" className="w-full h-11 font-medium" disabled={isLoading}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Signing in...
               </>
             ) : (
-              "Sign in"
+              "Sign In"
             )}
           </Button>
         </form>
-        <div className="mt-4 text-center text-sm">
+        <div className="mt-6 text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
-          <button type="button" onClick={onToggleMode} className="text-primary hover:underline">
-            Sign up
+          <button
+            type="button"
+            onClick={onToggleMode}
+            className="text-primary hover:text-primary/80 font-medium transition-colors"
+          >
+            Create Account
           </button>
         </div>
       </CardContent>

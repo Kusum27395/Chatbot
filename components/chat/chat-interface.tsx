@@ -36,13 +36,17 @@ export function ChatInterface() {
   }, [])
 
   const createNewChat = () => {
+    const personalities = aiService.getPersonalities()
+    const currentPersonalityData = personalities[currentPersonality] ||
+      personalities["helpful"] || { name: "Assistant", description: "Helpful AI assistant" }
+
     const newSession: ChatSession = {
       id: Date.now().toString(),
       title: "New Chat",
       messages: [
         {
           id: "welcome",
-          content: `Hello ${user?.name}! I'm your AI assistant in ${aiService.getPersonalities()[currentPersonality].name} mode. I can help you with questions, provide information, or just have a friendly conversation. 
+          content: `Hello ${user?.name || "there"}! I'm your AI assistant in ${currentPersonalityData.name} mode. I can help you with questions, provide information, or just have a friendly conversation. 
 
 Try typing "/help" to see what I can do, or "/personality [name]" to change my response style!`,
           role: "assistant",
@@ -61,11 +65,14 @@ Try typing "/help" to see what I can do, or "/personality [name]" to change my r
     aiService.setPersonality(personality as any)
     setShowPersonalitySelector(false)
 
+    const personalities = aiService.getPersonalities()
+    const personalityData = personalities[personality] || { name: "Assistant", description: "AI assistant" }
+
     // Add a message about the personality change
     if (currentSession) {
       const personalityMessage: Message = {
         id: Date.now().toString(),
-        content: `I've switched to ${aiService.getPersonalities()[personality].name} mode! ${aiService.getPersonalities()[personality].description}. How can I help you now?`,
+        content: `I've switched to ${personalityData.name} mode! ${personalityData.description}. How can I help you now?`,
         role: "assistant",
         timestamp: new Date(),
         status: "delivered",
@@ -200,7 +207,7 @@ Try typing "/help" to see what I can do, or "/personality [name]" to change my r
               <div className="h-6 w-6 text-primary">🤖</div>
               <h1 className="text-lg font-semibold">AI Assistant</h1>
               <span className="text-sm text-muted-foreground">
-                ({aiService.getPersonalities()[currentPersonality].name})
+                ({aiService.getPersonalities()[currentPersonality]?.name || "Assistant"})
               </span>
             </div>
             <ConnectionIndicator status={connectionStatus} />

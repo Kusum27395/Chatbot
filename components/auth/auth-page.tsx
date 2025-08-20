@@ -8,7 +8,7 @@ export function AuthPage() {
   const [isLogin, setIsLogin] = useState(true)
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         {isLogin ? (
           <LoginForm onToggleMode={() => setIsLogin(false)} />

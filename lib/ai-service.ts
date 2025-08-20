@@ -5,29 +5,33 @@ interface AIPersonality {
   description: string
   systemPrompt: string
   responseStyle: string
+  icon: string
 }
 
 const AI_PERSONALITIES: Record<string, AIPersonality> = {
-  helpful: {
-    name: "Helpful Assistant",
-    description: "A friendly and knowledgeable assistant",
+  professional: {
+    name: "Professional Assistant",
+    description: "Expert business and productivity assistant",
     systemPrompt:
-      "You are a helpful, friendly, and knowledgeable AI assistant. Provide clear, accurate, and useful responses.",
-    responseStyle: "helpful",
+      "You are a professional AI assistant focused on business productivity, strategic thinking, and professional development. Provide clear, actionable, and business-oriented responses.",
+    responseStyle: "professional",
+    icon: "💼",
   },
   creative: {
-    name: "Creative Companion",
-    description: "An imaginative and artistic assistant",
+    name: "Creative Strategist",
+    description: "Innovation and creative problem-solving specialist",
     systemPrompt:
-      "You are a creative and imaginative AI assistant. Help with brainstorming, creative writing, and artistic endeavors.",
+      "You are a creative strategist AI assistant. Help with innovative thinking, creative problem-solving, brainstorming, and out-of-the-box solutions for business and personal challenges.",
     responseStyle: "creative",
+    icon: "🎨",
   },
   analytical: {
-    name: "Analytical Expert",
-    description: "A logical and detail-oriented assistant",
+    name: "Data Analyst",
+    description: "Logical analysis and research specialist",
     systemPrompt:
-      "You are an analytical and logical AI assistant. Provide structured, detailed, and well-reasoned responses.",
+      "You are an analytical AI assistant specializing in data analysis, logical reasoning, research, and systematic problem-solving. Provide structured, evidence-based, and detailed responses.",
     responseStyle: "analytical",
+    icon: "📊",
   },
 }
 
@@ -38,66 +42,95 @@ interface ConversationContext {
     responseLength: "short" | "medium" | "long"
     topics: string[]
   }
+  sessionMetrics: {
+    messageCount: number
+    topicsDiscussed: string[]
+    averageResponseTime: number
+  }
+}
+
+const TOPIC_KEYWORDS = {
+  "business-strategy": ["strategy", "planning", "goals", "objectives", "growth", "market", "competition", "revenue"],
+  "project-management": ["project", "timeline", "deadline", "milestone", "task", "team", "collaboration", "workflow"],
+  leadership: ["leadership", "management", "team", "motivation", "communication", "delegation", "decision"],
+  technology: ["tech", "software", "digital", "automation", "ai", "data", "cloud", "security", "innovation"],
+  finance: ["budget", "cost", "investment", "roi", "profit", "expense", "financial", "accounting", "pricing"],
+  marketing: ["marketing", "brand", "customer", "audience", "campaign", "content", "social media", "seo"],
+  productivity: ["productivity", "efficiency", "time management", "organization", "workflow", "optimization"],
+  career: ["career", "job", "interview", "resume", "skills", "development", "promotion", "networking"],
+  innovation: ["innovation", "creative", "idea", "brainstorm", "solution", "design thinking", "prototype"],
+  analytics: ["data", "analysis", "metrics", "kpi", "report", "dashboard", "insights", "trends", "statistics"],
 }
 
 export class AIService {
-  private personality: keyof typeof AI_PERSONALITIES = "helpful"
+  private personality: keyof typeof AI_PERSONALITIES = "professional"
   private conversationHistory: Message[] = []
   private userTopics: string[] = []
+  private sessionStartTime: number = Date.now()
+  private responseCount = 0
 
   setPersonality(personality: keyof typeof AI_PERSONALITIES) {
     this.personality = personality
   }
 
   updateConversationHistory(messages: Message[]) {
-    this.conversationHistory = messages.slice(-10) // Keep last 10 messages for context
+    this.conversationHistory = messages.slice(-15) // Keep last 15 messages for better context
   }
 
   private extractTopics(message: string): string[] {
     const topics: string[] = []
-    const topicKeywords = {
-      technology: ["tech", "computer", "software", "programming", "code", "ai", "machine learning"],
-      science: ["science", "research", "experiment", "theory", "physics", "chemistry", "biology"],
-      business: ["business", "marketing", "sales", "strategy", "company", "startup", "entrepreneur"],
-      health: ["health", "fitness", "exercise", "diet", "wellness", "medical", "doctor"],
-      education: ["learn", "study", "school", "university", "education", "teaching", "course"],
-      creativity: ["art", "design", "creative", "writing", "music", "painting", "drawing"],
-      lifestyle: ["travel", "food", "cooking", "hobby", "entertainment", "movie", "book"],
-    }
-
     const lowerMessage = message.toLowerCase()
-    for (const [topic, keywords] of Object.entries(topicKeywords)) {
+
+    for (const [topic, keywords] of Object.entries(TOPIC_KEYWORDS)) {
       if (keywords.some((keyword) => lowerMessage.includes(keyword))) {
         topics.push(topic)
       }
     }
+
+    // Update user topics for personalization
+    topics.forEach((topic) => {
+      if (!this.userTopics.includes(topic)) {
+        this.userTopics.push(topic)
+      }
+    })
 
     return topics
   }
 
   private getContextualPrompt(userMessage: string, context: ConversationContext): string {
     const personality = AI_PERSONALITIES[this.personality]
-    const recentMessages = context.messages.slice(-3)
+    const recentMessages = context.messages.slice(-5)
     const topics = this.extractTopics(userMessage)
+    const sessionDuration = Math.floor((Date.now() - this.sessionStartTime) / 60000) // minutes
 
     let prompt = `${personality.systemPrompt}\n\n`
 
+    // Add session context
+    if (sessionDuration > 5) {
+      prompt += `Session context: We've been chatting for ${sessionDuration} minutes. `
+    }
+
+    if (this.userTopics.length > 0) {
+      prompt += `User's interests: ${this.userTopics.slice(-5).join(", ")}\n`
+    }
+
+    // Add conversation history
     if (recentMessages.length > 1) {
-      prompt += "Recent conversation context:\n"
-      recentMessages.forEach((msg) => {
+      prompt += "\nRecent conversation:\n"
+      recentMessages.forEach((msg, index) => {
         if (msg.role !== "assistant" || !msg.isTyping) {
-          prompt += `${msg.role}: ${msg.content}\n`
+          prompt += `${msg.role}: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? "..." : ""}\n`
         }
       })
-      prompt += "\n"
     }
 
+    // Add current context
     if (topics.length > 0) {
-      prompt += `The user seems interested in: ${topics.join(", ")}\n\n`
+      prompt += `\nCurrent topic focus: ${topics.join(", ")}\n`
     }
 
-    prompt += `Current user message: "${userMessage}"\n\n`
-    prompt += `Respond in a ${personality.responseStyle} manner. Keep the response conversational and engaging.`
+    prompt += `\nUser message: "${userMessage}"\n\n`
+    prompt += `Respond as a ${personality.name} in a ${personality.responseStyle} manner. Be helpful, engaging, and professional.`
 
     return prompt
   }
@@ -105,53 +138,60 @@ export class AIService {
   private generateResponsePatterns(userMessage: string, topics: string[]): string[] {
     const patterns: string[] = []
 
-    // Greeting patterns
+    // Professional greetings
     if (/^(hi|hello|hey|good morning|good afternoon|good evening)/i.test(userMessage)) {
       patterns.push(
-        "Hello! I'm excited to chat with you today. What's on your mind?",
-        "Hi there! I'm here and ready to help. What would you like to explore together?",
-        "Hey! Great to see you. What interesting topic shall we dive into?",
+        "Good to see you! I'm ready to assist with your professional needs today. What can I help you accomplish?",
+        "Hello! I'm here to support your business objectives and productivity goals. What's on your agenda?",
+        "Welcome back! Let's tackle your challenges and opportunities together. What would you like to focus on?",
       )
     }
 
-    // Question patterns
+    // Business-focused question patterns
     if (userMessage.includes("?")) {
       patterns.push(
-        "That's a fascinating question! Let me share my thoughts on this...",
-        "Great question! I think there are several ways to approach this...",
-        "Interesting inquiry! Based on what I understand, here's my perspective...",
+        "That's an excellent strategic question. Let me provide you with a comprehensive analysis...",
+        "Great question! I'll break this down into actionable insights for you...",
+        "Interesting challenge! Here's my professional assessment and recommendations...",
       )
     }
 
     // Problem-solving patterns
-    if (/help|problem|issue|stuck|difficult/i.test(userMessage)) {
+    if (/help|problem|issue|challenge|stuck|difficult/i.test(userMessage)) {
       patterns.push(
-        "I can definitely help you work through this. Let's break it down step by step...",
-        "I understand you're facing a challenge. Here's how I'd approach this situation...",
-        "Let me help you tackle this problem. First, let's consider the key factors...",
+        "I understand the challenge you're facing. Let's develop a strategic approach to resolve this...",
+        "Every challenge is an opportunity for growth. Here's how I recommend we tackle this systematically...",
+        "Let's work through this together with a structured problem-solving approach...",
       )
     }
 
-    // Topic-specific patterns
-    if (topics.includes("technology")) {
+    // Topic-specific professional patterns
+    if (topics.includes("business-strategy")) {
       patterns.push(
-        "Technology is such an exciting field! Here's what I think about this...",
-        "That's a great tech-related question. From my understanding...",
+        "Strategic thinking is crucial for success. Here's my analysis of your situation...",
+        "From a strategic perspective, let's examine the key factors and opportunities...",
       )
     }
 
-    if (topics.includes("creativity")) {
+    if (topics.includes("leadership")) {
       patterns.push(
-        "I love creative discussions! Here's an idea to consider...",
-        "Creativity is all about exploring possibilities. What if we tried...",
+        "Leadership excellence requires both vision and execution. Here's what I recommend...",
+        "Effective leadership is about empowering others while driving results. Consider this approach...",
       )
     }
 
-    // Default patterns
+    if (topics.includes("productivity")) {
+      patterns.push(
+        "Productivity optimization is key to professional success. Here's how to enhance your efficiency...",
+        "Let's streamline your workflow and maximize your impact. Here's my recommendation...",
+      )
+    }
+
+    // Default professional patterns
     patterns.push(
-      "That's really interesting! Here's my take on what you've shared...",
-      "I appreciate you bringing this up. Let me offer some thoughts...",
-      "Thanks for sharing that with me. Here's what comes to mind...",
+      "I appreciate you bringing this to my attention. Here's my professional assessment...",
+      "That's a valuable point to consider. Let me share some strategic insights...",
+      "Thank you for the opportunity to assist. Here's how I can help you succeed...",
     )
 
     return patterns
@@ -160,48 +200,51 @@ export class AIService {
   private generateDetailedResponse(userMessage: string, context: ConversationContext): string {
     const topics = this.extractTopics(userMessage)
     const patterns = this.generateResponsePatterns(userMessage, topics)
-    const selectedPattern = patterns[Math.floor(Math.random() * patterns.length)]
-
-    // Generate content based on personality and topics
+    const selectedPattern = patterns[Math.floor(Math.random() * Math.min(3, patterns.length))]
     const personality = AI_PERSONALITIES[this.personality]
+
     let response = selectedPattern
 
-    // Add personality-specific content
+    // Add personality-specific professional content
     if (this.personality === "analytical") {
-      response += " Let me analyze this systematically:\n\n"
-      response += "1. First, we should consider the core elements of your question\n"
-      response += "2. Then, we can examine the potential approaches\n"
-      response += "3. Finally, we'll evaluate the best path forward\n\n"
+      response += "\n\n**Analysis Framework:**\n"
+      response += "• **Current Situation**: Let me assess the key factors at play\n"
+      response += "• **Data Points**: Here are the relevant metrics and insights\n"
+      response += "• **Recommendations**: Based on the analysis, here's what I suggest\n"
+      response += "• **Next Steps**: Actionable items to move forward\n\n"
     } else if (this.personality === "creative") {
-      response += " You know what? This reminds me of an interesting creative approach...\n\n"
-      response += "Imagine if we looked at this from a completely different angle. "
+      response += "\n\n**Creative Approach:**\n"
+      response += "Let's think outside the box and explore innovative solutions. "
+      response += "Sometimes the best breakthroughs come from unconventional thinking.\n\n"
     } else {
-      response += "\n\n"
+      response += "\n\n**Professional Guidance:**\n"
     }
 
-    // Add topic-specific insights
-    if (topics.includes("technology")) {
-      response += "In the tech world, this kind of challenge often requires balancing innovation with practicality. "
-    } else if (topics.includes("business")) {
-      response += "From a business perspective, it's important to consider both short-term and long-term implications. "
-    } else if (topics.includes("creativity")) {
-      response += "Creative endeavors often benefit from embracing experimentation and iteration. "
+    // Add topic-specific business insights
+    if (topics.includes("business-strategy")) {
+      response += "Strategic success requires clear vision, market understanding, and execution excellence. "
+    } else if (topics.includes("leadership")) {
+      response += "Effective leadership combines emotional intelligence with strategic decision-making. "
+    } else if (topics.includes("productivity")) {
+      response += "Peak productivity comes from optimizing both systems and mindset. "
+    } else if (topics.includes("technology")) {
+      response += "Technology should enhance human capability and drive business value. "
     }
 
-    // Add contextual follow-up based on conversation history
+    // Add contextual follow-up
     const recentUserMessages = context.messages.filter((m) => m.role === "user").slice(-2)
     if (recentUserMessages.length > 1) {
-      response += "\n\nBuilding on what we discussed earlier, "
+      response += "\n\nBuilding on our previous discussion, "
     }
 
-    response += "What aspects of this would you like to explore further?"
+    response += "I'm here to support your continued success. What specific aspect would you like to dive deeper into?"
 
     return response
   }
 
   async generateResponse(userMessage: string, conversationHistory: Message[]): Promise<string> {
-    // Simulate AI processing time
-    await new Promise((resolve) => setTimeout(resolve, 1500 + Math.random() * 2000))
+    // Simulate realistic AI processing time
+    await new Promise((resolve) => setTimeout(resolve, 1200 + Math.random() * 1800))
 
     const context: ConversationContext = {
       messages: conversationHistory,
@@ -210,41 +253,75 @@ export class AIService {
         responseLength: "medium",
         topics: this.userTopics,
       },
+      sessionMetrics: {
+        messageCount: conversationHistory.length,
+        topicsDiscussed: this.userTopics,
+        averageResponseTime: 2000,
+      },
     }
 
     this.updateConversationHistory(conversationHistory)
+    this.responseCount++
 
-    // Handle special commands
+    // Enhanced command handling
     if (userMessage.toLowerCase().startsWith("/personality")) {
       const requestedPersonality = userMessage.toLowerCase().replace("/personality ", "").trim()
       if (requestedPersonality in AI_PERSONALITIES) {
         this.setPersonality(requestedPersonality as keyof typeof AI_PERSONALITIES)
-        return `I've switched to ${AI_PERSONALITIES[requestedPersonality as keyof typeof AI_PERSONALITIES].name} mode! ${AI_PERSONALITIES[requestedPersonality as keyof typeof AI_PERSONALITIES].description}. How can I help you now?`
+        const personality = AI_PERSONALITIES[requestedPersonality as keyof typeof AI_PERSONALITIES]
+        return `${personality.icon} **Switched to ${personality.name}**\n\n${personality.description}\n\nI'm now optimized for ${personality.responseStyle} assistance. How can I help you achieve your goals?`
       } else {
-        return `Available personalities: ${Object.keys(AI_PERSONALITIES).join(", ")}. Use "/personality [name]" to switch.`
+        return `**Available AI Personalities:**\n\n${Object.entries(AI_PERSONALITIES)
+          .map(([key, p]) => `${p.icon} **${key}**: ${p.description}`)
+          .join("\n\n")}\n\nUse "/personality [name]" to switch modes.`
       }
     }
 
     if (userMessage.toLowerCase() === "/help") {
-      return `I'm your AI assistant! Here's what I can do:
+      return `# 🤖 AI Assistant Pro - Help Guide
 
-🤖 **Personalities**: Use "/personality helpful", "/personality creative", or "/personality analytical" to change my response style
+## **Personalities**
+${Object.entries(AI_PERSONALITIES)
+  .map(([key, p]) => `${p.icon} **/${key}**: ${p.description}`)
+  .join("\n")}
 
-💬 **Conversation**: I remember our recent chat history to provide better context
+## **Commands**
+• **/personality [name]** - Switch AI personality
+• **/help** - Show this help guide
+• **/stats** - View session statistics
 
-🧠 **Topics**: I can discuss technology, science, business, health, education, creativity, and lifestyle
+## **Capabilities**
+✅ **Business Strategy** - Strategic planning and analysis
+✅ **Project Management** - Workflow optimization
+✅ **Leadership** - Management and team guidance  
+✅ **Technology** - Digital transformation insights
+✅ **Productivity** - Efficiency enhancement
+✅ **Analytics** - Data-driven decision making
 
-✨ **Features**: I provide thoughtful, contextual responses based on our conversation
-
-What would you like to chat about?`
+Ready to boost your professional success! What challenge shall we tackle?`
     }
 
-    // Generate contextual response
+    if (userMessage.toLowerCase() === "/stats") {
+      const sessionDuration = Math.floor((Date.now() - this.sessionStartTime) / 60000)
+      return `# 📊 Session Statistics
+
+**Current Session:**
+• Duration: ${sessionDuration} minutes
+• Messages exchanged: ${conversationHistory.length}
+• Active personality: ${AI_PERSONALITIES[this.personality].name}
+
+**Topics Discussed:**
+${this.userTopics.length > 0 ? this.userTopics.map((topic) => `• ${topic.replace("-", " ")}`).join("\n") : "• No specific topics identified yet"}
+
+**Productivity Tip:** Regular breaks and focused sessions lead to better outcomes!`
+    }
+
+    // Generate enhanced contextual response
     try {
       return this.generateDetailedResponse(userMessage, context)
     } catch (error) {
       console.error("Error generating AI response:", error)
-      return "I apologize, but I'm having trouble processing that right now. Could you try rephrasing your message?"
+      return "I apologize for the technical difficulty. As your professional AI assistant, I'm committed to providing reliable service. Please try rephrasing your request, and I'll be happy to assist you."
     }
   }
 
@@ -254,6 +331,15 @@ What would you like to chat about?`
 
   getCurrentPersonality() {
     return this.personality
+  }
+
+  getSessionAnalytics() {
+    return {
+      duration: Math.floor((Date.now() - this.sessionStartTime) / 60000),
+      responseCount: this.responseCount,
+      topicsDiscussed: this.userTopics,
+      currentPersonality: this.personality,
+    }
   }
 }
 
